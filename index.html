@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b6b3a">
+<title>Poker Trainer</title>
+<style>
+  :root{
+    --felt:#0b6b3a; --felt2:#075027; --bg:#0e1512; --card:#16201b;
+    --accent:#27c281; --accent2:#1aa56a; --gold:#e9c46a;
+    --red:#e76f51; --txt:#eaf3ee; --muted:#9fb4a8; --line:#243029;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(120% 80% at 50% 0%,#13241b 0%,var(--bg) 60%);
+    color:var(--txt); min-height:100vh; padding:env(safe-area-inset-top) 0 0 0;
+  }
+  header{
+    text-align:center; padding:16px 12px 8px;
+  }
+  header h1{margin:0; font-size:20px; letter-spacing:.5px;}
+  header h1 .chip{color:var(--gold);}
+  header p{margin:4px 0 0; font-size:12px; color:var(--muted);}
+  .tabs{display:flex; gap:6px; padding:10px 12px; position:sticky; top:0;
+        background:linear-gradient(#0e1512,#0e1512ee); z-index:5;}
+  .tab{flex:1; padding:11px 6px; border:1px solid var(--line); border-radius:12px;
+       background:var(--card); color:var(--muted); font-size:13px; font-weight:600;
+       text-align:center; cursor:pointer;}
+  .tab.active{background:var(--felt); color:#fff; border-color:var(--accent2);}
+  .screen{display:none; padding:8px 14px 40px; max-width:520px; margin:0 auto;}
+  .screen.active{display:block;}
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:16px;
+         padding:16px; margin-bottom:14px;}
+  .pos{font-size:13px; color:var(--gold); font-weight:700; text-transform:uppercase; letter-spacing:.5px;}
+  .pos small{display:block; color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; margin-top:2px;}
+  .cards{display:flex; gap:10px; justify-content:center; margin:18px 0;}
+  .pcard{width:62px; height:88px; border-radius:10px; background:#fbfbf7; color:#111;
+         display:flex; flex-direction:column; justify-content:space-between; padding:7px 8px;
+         box-shadow:0 3px 10px #0008; font-weight:800;}
+  .pcard .r{font-size:26px; line-height:1;}
+  .pcard .s{font-size:22px; align-self:flex-end;}
+  .red{color:#d11;} .blk{color:#111;}
+  .btnrow{display:flex; gap:10px; margin-top:8px;}
+  button.act{flex:1; padding:15px; border:none; border-radius:13px; font-size:16px;
+             font-weight:800; color:#06140d; cursor:pointer;}
+  .raise{background:linear-gradient(180deg,var(--accent),var(--accent2));}
+  .fold{background:linear-gradient(180deg,#cfd8d3,#a9b6af);}
+  .call{background:linear-gradient(180deg,var(--gold),#d9b24f);}
+  .feedback{margin-top:14px; padding:13px; border-radius:12px; font-size:14px; line-height:1.5;
+            display:none;}
+  .feedback.ok{background:#0f3d28; border:1px solid var(--accent2);}
+  .feedback.bad{background:#3d1f17; border:1px solid var(--red);}
+  .feedback b{font-size:15px;}
+  .next{margin-top:12px; width:100%; padding:13px; border-radius:12px; border:1px solid var(--accent2);
+        background:transparent; color:var(--accent); font-weight:700; font-size:15px; cursor:pointer; display:none;}
+  .score{text-align:center; font-size:13px; color:var(--muted); margin-top:10px;}
+  .score b{color:var(--txt);}
+  .odds{text-align:center; margin:10px 0;}
+  .odds .row{display:flex; justify-content:space-around; margin:14px 0;}
+  .odds .cell{text-align:center;}
+  .odds .cell .lbl{font-size:11px; color:var(--muted); text-transform:uppercase;}
+  .odds .cell .val{font-size:26px; font-weight:800; color:var(--gold);}
+  label{display:block; font-size:12px; color:var(--muted); margin:12px 0 5px;}
+  input,select{width:100%; padding:13px; border-radius:11px; border:1px solid var(--line);
+        background:#0c130f; color:var(--txt); font-size:16px;}
+  .eqres{margin-top:16px; display:none;}
+  .bar{height:30px; border-radius:8px; overflow:hidden; display:flex; font-size:12px; font-weight:700; color:#06140d;}
+  .bar .win{background:var(--accent);} .bar .tie{background:var(--gold);} .bar .lose{background:#5a6a61; color:#dfe7e2;}
+  .bar span{display:flex; align-items:center; justify-content:center; min-width:0;}
+  .eqsummary{text-align:center; margin-top:10px; font-size:14px;}
+  .hint{font-size:12px; color:var(--muted); line-height:1.5; margin-top:10px;}
+  .calcbtn{width:100%; margin-top:16px; padding:15px; border:none; border-radius:13px;
+           background:linear-gradient(180deg,var(--accent),var(--accent2)); color:#06140d;
+           font-weight:800; font-size:16px; cursor:pointer;}
+  .err{color:var(--red); font-size:13px; margin-top:8px; min-height:16px;}
+  footer{text-align:center; font-size:11px; color:var(--muted); padding:10px 20px 30px; line-height:1.5;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🃏 Poker Trainer <span class="chip">NL</span></h1>
+  <p>Texas Hold'em No Limit · 6-max · entraînement décisions</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-screen="preflop">Préflop</div>
+  <div class="tab" data-screen="potodds">Pot Odds</div>
+  <div class="tab" data-screen="equity">Équité</div>
+</div>
+
+<!-- ============ PREFLOP ============ -->
+<section class="screen active" id="preflop">
+  <div class="panel">
+    <div class="pos" id="pf-pos"></div>
+    <div class="cards" id="pf-cards"></div>
+    <div class="btnrow">
+      <button class="act raise" onclick="pfAnswer('r')">Relancer</button>
+      <button class="act fold" onclick="pfAnswer('f')">Fold</button>
+    </div>
+    <div class="feedback" id="pf-fb"></div>
+    <button class="next" id="pf-next" onclick="pfNew()">Main suivante →</button>
+    <div class="score">Score : <b id="pf-score">0 / 0</b></div>
+  </div>
+  <div class="hint">Action repliée jusqu'à toi : tu ouvres (relance) ou tu jettes ? Ranges d'ouverture standard 6-max ~100bb. UTG = le plus serré, BTN = le plus large.</div>
+</section>
+
+<!-- ============ POT ODDS ============ -->
+<section class="screen" id="potodds">
+  <div class="panel">
+    <div class="odds">
+      <div class="row">
+        <div class="cell"><div class="lbl">Pot</div><div class="val" id="po-pot"></div></div>
+        <div class="cell"><div class="lbl">À payer</div><div class="val" id="po-bet"></div></div>
+        <div class="cell"><div class="lbl">Ton équité</div><div class="val" id="po-eq"></div></div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="act call" onclick="poAnswer('c')">Call</button>
+      <button class="act fold" onclick="poAnswer('f')">Fold</button>
+    </div>
+    <div class="feedback" id="po-fb"></div>
+    <button class="next" id="po-next" onclick="poNew()">Situation suivante →</button>
+    <div class="score">Score : <b id="po-score">0 / 0</b></div>
+  </div>
+  <div class="hint">Tu dois payer pour voir la suite. Call rentable si ton équité dépasse la cote du pot : <b>équité requise = mise / (pot + 2×mise)</b>.</div>
+</section>
+
+<!-- ============ EQUITY ============ -->
+<section class="screen" id="equity">
+  <div class="panel">
+    <label>Ta main (ex : As Ks)</label>
+    <input id="eq-hand" placeholder="As Ks" autocapitalize="characters" autocomplete="off">
+    <label>Nombre d'adversaires</label>
+    <select id="eq-vill">
+      <option>1</option><option>2</option><option>3</option><option>4</option>
+      <option>5</option><option>6</option><option>7</option><option>8</option>
+    </select>
+    <label>Board (vide, ou ex : Th 9h 2c)</label>
+    <input id="eq-board" placeholder="(préflop : laisse vide)" autocapitalize="characters" autocomplete="off">
+    <button class="calcbtn" onclick="runEquity()">Calculer l'équité</button>
+    <div class="err" id="eq-err"></div>
+    <div class="eqres" id="eq-res">
+      <div class="bar">
+        <span class="win" id="eq-win"></span>
+        <span class="tie" id="eq-tie"></span>
+        <span class="lose" id="eq-lose"></span>
+      </div>
+      <div class="eqsummary" id="eq-sum"></div>
+    </div>
+  </div>
+  <div class="hint">Méthode Monte-Carlo : l'app simule des milliers de mains au hasard et compte tes victoires. Cartes : rang + couleur (s=pique, h=cœur, d=carreau, c=trèfle). Ex : <b>As</b> = As de pique.</div>
+</section>
+
+<footer>
+  Ranges d'apprentissage (proches GTO), pas un solveur exact. Le poker reste un jeu à variance.<br>
+  Astuce : menu du navigateur → « Ajouter à l'écran d'accueil » pour l'utiliser comme une app.
+</footer>
+
+<script>
+/* ============ LOGIQUE POKER (identique a la version Python, validee) ============ */
+const RANK_ORDER="23456789TJQKA";
+const RANK_TO_VAL={}; for(let i=0;i<RANK_ORDER.length;i++) RANK_TO_VAL[RANK_ORDER[i]]=i+2;
+const VAL_TO_RANK={}; for(const r in RANK_TO_VAL) VAL_TO_RANK[RANK_TO_VAL[r]]=r;
+const SUITS="shdc";
+const SUIT_SYM={s:"♠",h:"♥",d:"♦",c:"♣"};
+
+function fullDeck(){const d=[];for(let v=2;v<=14;v++)for(let si=0;si<4;si++)d.push(v*10+si);return d;}
+const cv=c=>Math.floor(c/10), cs=c=>c%10;
+function parseCard(t){t=t.trim();if(t.length!==2)throw new Error("Carte invalide : "+t);
+  const r=t[0].toUpperCase(),s=t[1].toLowerCase();
+  if(!(r in RANK_TO_VAL)||SUITS.indexOf(s)<0)throw new Error("Carte invalide : "+t);
+  return RANK_TO_VAL[r]*10+SUITS.indexOf(s);}
+function cardSym(c){const s=SUITS[cs(c)];return {r:VAL_TO_RANK[cv(c)],s:SUIT_SYM[s],red:(s==="h"||s==="d")};}
+
+function straightHigh(vals){const s=new Set(vals);if(s.has(14))s.add(1);
+  for(let h=14;h>=5;h--){let ok=true;for(let i=0;i<5;i++)if(!s.has(h-i)){ok=false;break;}if(ok)return h;}return 0;}
+
+function evaluate(cards){
+  const vc={},sc=[0,0,0,0];
+  for(const c of cards){const v=cv(c);vc[v]=(vc[v]||0)+1;sc[cs(c)]++;}
+  let fs=-1;for(let i=0;i<4;i++)if(sc[i]>=5)fs=i;
+  if(fs>=0){const fv=cards.filter(c=>cs(c)===fs).map(cv);const sf=straightHigh(fv);if(sf)return[8,sf,0,0,0,0];}
+  const counts=Object.keys(vc).map(Number).map(v=>[v,vc[v]]).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
+  if(counts[0][1]===4){const q=counts[0][0];const k=Math.max(...Object.keys(vc).map(Number).filter(v=>v!==q));return[7,q,k,0,0,0];}
+  if(counts[0][1]===3){const t=counts[0][0];let p=0;for(let i=1;i<counts.length;i++)if(counts[i][1]>=2){p=counts[i][0];break;}if(p)return[6,t,p,0,0,0];}
+  if(fs>=0){const fv=cards.filter(c=>cs(c)===fs).map(cv).sort((a,b)=>b-a).slice(0,5);return[5,fv[0],fv[1],fv[2],fv[3],fv[4]];}
+  const st=straightHigh(Object.keys(vc).map(Number));if(st)return[4,st,0,0,0,0];
+  if(counts[0][1]===3){const t=counts[0][0];const k=Object.keys(vc).map(Number).filter(v=>v!==t).sort((a,b)=>b-a);return[3,t,k[0],k[1]||0,0,0];}
+  if(counts[0][1]===2&&counts[1]&&counts[1][1]===2){const p1=counts[0][0],p2=counts[1][0];const k=Math.max(...Object.keys(vc).map(Number).filter(v=>v!==p1&&v!==p2));return[2,p1,p2,k,0,0];}
+  if(counts[0][1]===2){const p=counts[0][0];const k=Object.keys(vc).map(Number).filter(v=>v!==p).sort((a,b)=>b-a);return[1,p,k[0],k[1]||0,k[2]||0,0];}
+  const k=Object.keys(vc).map(Number).sort((a,b)=>b-a).slice(0,5);return[0,k[0],k[1],k[2],k[3],k[4]];
+}
+function cmp(a,b){for(let i=0;i<6;i++)if(a[i]!==b[i])return a[i]-b[i];return 0;}
+
+function equity(hero,numVillains,board,villainHands,iters){
+  board=board||[];villainHands=villainHands||[];
+  const known=new Set([...hero,...board]);for(const v of villainHands)for(const c of v)known.add(c);
+  let deck=fullDeck().filter(c=>!known.has(c));
+  const nRand=Math.max(0,numVillains-villainHands.length);
+  let wins=0,ties=0;
+  for(let it=0;it<iters;it++){
+    for(let i=deck.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;const t=deck[i];deck[i]=deck[j];deck[j]=t;}
+    let idx=0;const vills=villainHands.map(v=>v.slice());
+    for(let k=0;k<nRand;k++){vills.push([deck[idx],deck[idx+1]]);idx+=2;}
+    const fb=board.slice();while(fb.length<5){fb.push(deck[idx]);idx++;}
+    const hs=evaluate([...hero,...fb]);let best=hs,heroBest=true,tie=false;
+    for(const v of vills){const vs=evaluate([...v,...fb]);const c=cmp(vs,best);
+      if(c>0){best=vs;heroBest=false;tie=false;}else if(c===0&&cmp(best,hs)===0){tie=true;}}
+    if(heroBest&&cmp(best,hs)===0){if(tie)ties++;else wins++;}
+  }
+  const w=100*wins/iters,t=100*ties/iters;return[w,t,100-w-t];
+}
+
+/* ============ RANGES PREFLOP RFI ============ */
+const RFI_RAW={
+  UTG:"22+ A2s+ KTs+ QTs+ J9s+ T9s 98s 87s 76s AJo+ KQo",
+  MP:"22+ A2s+ K9s+ Q9s+ J9s+ T8s+ 98s 87s 76s 65s ATo+ KJo+ QJo",
+  CO:"22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 76s 65s 54s A9o+ KTo+ QTo+ JTo",
+  BTN:"22+ A2s+ K2s+ Q4s+ J6s+ T6s+ 96s+ 85s+ 74s+ 64s+ 53s+ 43s A2o+ K8o+ Q9o+ J9o+ T8o+ 98o 87o",
+  SB:"22+ A2s+ K5s+ Q7s+ J8s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A4o+ K9o+ Q9o+ JTo"
+};
+const POS_FR={UTG:"early — le plus serré",MP:"milieu",CO:"cutoff",BTN:"bouton — le plus large",SB:"petite blinde"};
+const POSITIONS=["UTG","MP","CO","BTN","SB"];
+
+function expandToken(tok){
+  const out=new Set();const plus=tok.endsWith("+");const base=plus?tok.slice(0,-1):tok;
+  if(base.length===2){const v=RANK_TO_VAL[base[0]];
+    if(plus){for(let vv=v;vv<=14;vv++)out.add(VAL_TO_RANK[vv]+VAL_TO_RANK[vv]);}else out.add(base[0]+base[0]);
+  }else{const r1=base[0],r2=base[1],su=base[2];const v1=RANK_TO_VAL[r1],v2=RANK_TO_VAL[r2];
+    if(plus){for(let vv=v2;vv<v1;vv++)out.add(r1+VAL_TO_RANK[vv]+su);}else out.add(r1+r2+su);}
+  return out;
+}
+const RFI={};for(const p in RFI_RAW){RFI[p]=new Set();for(const t of RFI_RAW[p].split(" "))for(const h of expandToken(t))RFI[p].add(h);}
+
+function canonical(cards){
+  let[a,b]=cards;let v1=cv(a),v2=cv(b),s1=cs(a),s2=cs(b);
+  if(v1<v2){[v1,v2,s1,s2]=[v2,v1,s2,s1];}
+  const r1=VAL_TO_RANK[v1],r2=VAL_TO_RANK[v2];
+  if(v1===v2)return r1+r2;
+  return r1+r2+(s1===s2?"s":"o");
+}
+
+/* ============ UI : navigation onglets ============ */
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active");document.getElementById(t.dataset.screen).classList.add("active");
+});
+
+/* ============ MODULE PREFLOP ============ */
+let pfScore=0,pfTotal=0,pfState=null;
+function renderCards(el,cards){el.innerHTML="";for(const c of cards){const cc=cardSym(c);
+  const d=document.createElement("div");d.className="pcard";
+  d.innerHTML=`<div class="r ${cc.red?'red':'blk'}">${cc.r}</div><div class="s ${cc.red?'red':'blk'}">${cc.s}</div>`;
+  el.appendChild(d);}}
+function pfNew(){
+  const deck=fullDeck();for(let i=deck.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[deck[i],deck[j]]=[deck[j],deck[i]];}
+  const cards=[deck[0],deck[1]];const pos=POSITIONS[(Math.random()*POSITIONS.length)|0];
+  const cano=canonical(cards);const correct=RFI[pos].has(cano)?"r":"f";
+  pfState={pos,cards,cano,correct};
+  document.getElementById("pf-pos").innerHTML=`${pos}<small>${POS_FR[pos]}</small>`;
+  renderCards(document.getElementById("pf-cards"),cards);
+  document.getElementById("pf-fb").style.display="none";
+  document.getElementById("pf-next").style.display="none";
+  document.querySelectorAll("#preflop .act").forEach(b=>b.disabled=false);
+}
+function pfAnswer(ans){
+  if(!pfState)return;const{pos,cano,correct}=pfState;pfTotal++;
+  const ok=ans===correct;if(ok)pfScore++;
+  const action=correct==="r"?"OUVRIR (relance)":"FOLD";
+  let why;
+  if(correct==="r")why=`${cano} fait partie de la range d'ouverture en ${pos}. Main assez forte pour prendre l'initiative.`;
+  else if(pos==="UTG"||pos==="MP")why=`${cano} est trop faible pour ouvrir en ${pos} : trop d'adversaires derrière. Au bouton, ce serait peut-être jouable.`;
+  else why=`${cano} est hors de la range d'ouverture en ${pos}. Ouvrir ici perd de l'argent sur le long terme.`;
+  const fb=document.getElementById("pf-fb");
+  fb.className="feedback "+(ok?"ok":"bad");
+  fb.innerHTML=`<b>${ok?"✅ Correct":"❌ Erreur"}</b> — bonne décision : <b>${action}</b><br>${why}`;
+  fb.style.display="block";
+  document.getElementById("pf-next").style.display="block";
+  document.getElementById("pf-score").textContent=`${pfScore} / ${pfTotal}`;
+  document.querySelectorAll("#preflop .act").forEach(b=>b.disabled=true);
+}
+
+/* ============ MODULE POT ODDS ============ */
+let poScore=0,poTotal=0,poState=null;
+function poNew(){
+  const pots=[20,30,50,60,80,100,120,150],bets=[10,15,20,25,30,40,50,60,75];
+  const pot=pots[(Math.random()*pots.length)|0],bet=bets[(Math.random()*bets.length)|0];
+  const be=100*bet/(pot+2*bet);
+  let eq=+(Math.random()*(Math.min(95,be+18)-Math.max(5,be-18))+Math.max(5,be-18)).toFixed(1);
+  const correct=eq>be?"c":"f";
+  poState={pot,bet,eq,be,correct};
+  document.getElementById("po-pot").textContent=pot;
+  document.getElementById("po-bet").textContent=bet;
+  document.getElementById("po-eq").textContent=eq+"%";
+  document.getElementById("po-fb").style.display="none";
+  document.getElementById("po-next").style.display="none";
+  document.querySelectorAll("#potodds .act").forEach(b=>b.disabled=false);
+}
+function poAnswer(ans){
+  if(!poState)return;const{pot,bet,eq,be,correct}=poState;poTotal++;
+  const ok=ans===correct;if(ok)poScore++;
+  const fb=document.getElementById("po-fb");
+  fb.className="feedback "+(ok?"ok":"bad");
+  fb.innerHTML=`<b>${ok?"✅ Correct":"❌ Erreur"}</b> — bonne décision : <b>${correct==="c"?"CALL":"FOLD"}</b><br>`+
+    `Tu paies ${bet} pour gagner ${pot}+${bet}=${pot+bet}.<br>`+
+    `Équité requise = ${bet}/(${pot}+2×${bet}) = <b>${be.toFixed(1)}%</b>.<br>`+
+    `Ton équité ${eq}% ${eq>be?"&gt;":"&lt;"} ${be.toFixed(1)}% → ${correct==="c"?"call rentable (+EV)":"call non rentable (-EV)"}.`;
+  fb.style.display="block";
+  document.getElementById("po-next").style.display="block";
+  document.getElementById("po-score").textContent=`${poScore} / ${poTotal}`;
+  document.querySelectorAll("#potodds .act").forEach(b=>b.disabled=true);
+}
+
+/* ============ MODULE EQUITE ============ */
+function runEquity(){
+  const err=document.getElementById("eq-err");err.textContent="";
+  try{
+    const hand=document.getElementById("eq-hand").value.trim().split(/\s+/).filter(Boolean).map(parseCard);
+    if(hand.length!==2)throw new Error("Entre exactement 2 cartes (ex : As Ks).");
+    const num=+document.getElementById("eq-vill").value;
+    const braw=document.getElementById("eq-board").value.trim();
+    const board=braw?braw.split(/\s+/).filter(Boolean).map(parseCard):[];
+    if(board.length>5)throw new Error("Le board a 5 cartes maximum.");
+    const all=[...hand,...board];if(new Set(all).size!==all.length)throw new Error("Carte en double.");
+    const [w,t,l]=equity(hand,num,board,[],12000);
+    document.getElementById("eq-win").style.width=w+"%";
+    document.getElementById("eq-tie").style.width=t+"%";
+    document.getElementById("eq-lose").style.width=l+"%";
+    document.getElementById("eq-win").textContent=w>=8?w.toFixed(0)+"%":"";
+    document.getElementById("eq-tie").textContent=t>=8?t.toFixed(0)+"%":"";
+    document.getElementById("eq-lose").textContent=l>=8?l.toFixed(0)+"%":"";
+    document.getElementById("eq-sum").innerHTML=`Victoire <b>${w.toFixed(1)}%</b> · Égalité ${t.toFixed(1)}% · Défaite ${l.toFixed(1)}%`;
+    document.getElementById("eq-res").style.display="block";
+  }catch(e){err.textContent=e.message;document.getElementById("eq-res").style.display="none";}
+}
+
+/* init */
+pfNew();poNew();
+</script>
+</body>
+</html>
