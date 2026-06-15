@@ -31,8 +31,8 @@
   header p{margin:4px 0 0; font-size:12px; color:var(--muted);}
   .tabs{display:flex; gap:6px; padding:10px 12px; position:sticky; top:0;
         background:linear-gradient(#0e1512,#0e1512ee); z-index:5;}
-  .tab{flex:1; padding:11px 6px; border:1px solid var(--line); border-radius:12px;
-       background:var(--card); color:var(--muted); font-size:13px; font-weight:600;
+  .tab{flex:1; padding:10px 3px; border:1px solid var(--line); border-radius:11px;
+       background:var(--card); color:var(--muted); font-size:12px; font-weight:600;
        text-align:center; cursor:pointer;}
   .tab.active{background:var(--felt); color:#fff; border-color:var(--accent2);}
   .screen{display:none; padding:8px 14px 40px; max-width:520px; margin:0 auto;}
@@ -41,7 +41,8 @@
          padding:16px; margin-bottom:14px;}
   .pos{font-size:13px; color:var(--gold); font-weight:700; text-transform:uppercase; letter-spacing:.5px;}
   .pos small{display:block; color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; margin-top:2px;}
-  .cards{display:flex; gap:10px; justify-content:center; margin:18px 0;}
+  .cards{display:flex; gap:10px; justify-content:center; margin:12px 0;}
+  .sublabel{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; text-align:center; margin-top:12px;}
   .pcard{width:62px; height:88px; border-radius:10px; background:#fbfbf7; color:#111;
          display:flex; flex-direction:column; justify-content:space-between; padding:7px 8px;
          box-shadow:0 3px 10px #0008; font-weight:800;}
@@ -93,6 +94,7 @@
 <div class="tabs">
   <div class="tab active" data-screen="preflop">Préflop</div>
   <div class="tab" data-screen="potodds">Pot Odds</div>
+  <div class="tab" data-screen="postflop">Postflop</div>
   <div class="tab" data-screen="equity">Équité</div>
 </div>
 
@@ -131,6 +133,29 @@
     <div class="score">Score : <b id="po-score">0 / 0</b></div>
   </div>
   <div class="hint">Tu dois payer pour voir la suite. Call rentable si ton équité dépasse la cote du pot : <b>équité requise = mise / (pot + 2×mise)</b>.</div>
+</section>
+
+<!-- ============ POSTFLOP ============ -->
+<section class="screen" id="postflop">
+  <div class="panel">
+    <div class="pos" id="pfl-draw"></div>
+    <div class="sublabel">Board — flop</div>
+    <div class="cards" id="pfl-board"></div>
+    <div class="sublabel">Ta main</div>
+    <div class="cards" id="pfl-hand"></div>
+    <div class="odds"><div class="row">
+      <div class="cell"><div class="lbl">Pot</div><div class="val" id="pfl-pot"></div></div>
+      <div class="cell"><div class="lbl">Villain tapis</div><div class="val" id="pfl-bet"></div></div>
+    </div></div>
+    <div class="btnrow">
+      <button class="act call" onclick="pflAnswer('c')">Call (payer)</button>
+      <button class="act fold" onclick="pflAnswer('f')">Fold</button>
+    </div>
+    <div class="feedback" id="pfl-fb"></div>
+    <button class="next" id="pfl-next" onclick="pflNew()">Main suivante →</button>
+    <div class="score">Score : <b id="pfl-score">0 / 0</b></div>
+  </div>
+  <div class="hint">Tu as un tirage et villain fait <b>tapis</b> (all-in) sur le flop → 2 cartes à venir. Paie seulement si ta chance de compléter ton tirage dépasse la cote du pot. Astuce : <b>nombre d'outs × 4</b> ≈ ta chance de toucher d'ici la river.</div>
 </section>
 
 <!-- ============ EQUITY ============ -->
@@ -320,6 +345,77 @@ function poAnswer(ans){
   document.querySelectorAll("#potodds .act").forEach(b=>b.disabled=true);
 }
 
+/* ============ MODULE POSTFLOP (tirage face a un tapis) ============ */
+const combo2 = n => n * (n - 1) / 2;
+function postflopDraw(hero, flop){
+  const baseCat = evaluate([...hero, ...flop])[0];
+  const used = new Set([...hero, ...flop]);
+  const rem = fullDeck().filter(c => !used.has(c));
+  let flushOuts = 0, straightOuts = 0;
+  for(const c of rem){
+    const cat = evaluate([...hero, ...flop, c])[0];
+    if(baseCat < 4 && cat === 5) flushOuts++;
+    else if(baseCat < 4 && cat === 4) straightOuts++;
+  }
+  const outs = flushOuts + straightOuts;
+  const R = rem.length;
+  const hitProb = 100 * (1 - combo2(R - outs) / combo2(R));
+  let label;
+  if(flushOuts > 0 && straightOuts > 0) label = "gros tirage (couleur + quinte)";
+  else if(flushOuts > 0) label = "tirage couleur";
+  else if(straightOuts >= 8) label = "tirage quinte par les 2 bouts";
+  else if(straightOuts > 0) label = "tirage quinte ventrale (gutshot)";
+  else label = "pas de tirage";
+  return {outs, flushOuts, straightOuts, baseCat, hitProb, label};
+}
+
+let pflScore = 0, pflTotal = 0, pflState = null;
+function pflNew(){
+  let spot = null;
+  for(let tries = 0; tries < 3000 && !spot; tries++){
+    const deck = fullDeck();
+    for(let i = deck.length - 1; i > 0; i--){const j = (Math.random() * (i + 1)) | 0;[deck[i], deck[j]] = [deck[j], deck[i]];}
+    const hero = [deck[0], deck[1]], flop = [deck[2], deck[3], deck[4]];
+    const d = postflopDraw(hero, flop);
+    if(d.baseCat === 0 && d.outs >= 4 && d.outs <= 15) spot = {hero, flop, d};
+  }
+  const factors = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const pots = [20, 30, 40, 50, 60, 80, 100];
+  const pot = pots[(Math.random() * pots.length) | 0];
+  const f = factors[(Math.random() * factors.length) | 0];
+  const bet = Math.round(pot * f / 5) * 5;
+  const be = 100 * bet / (pot + 2 * bet);
+  const correct = spot.d.hitProb > be ? "c" : "f";
+  pflState = {...spot, pot, bet, be, correct};
+
+  document.getElementById("pfl-draw").innerHTML =
+    `${spot.d.label}<small>${spot.d.outs} outs</small>`;
+  renderCards(document.getElementById("pfl-board"), spot.flop);
+  renderCards(document.getElementById("pfl-hand"), spot.hero);
+  document.getElementById("pfl-pot").textContent = pot;
+  document.getElementById("pfl-bet").textContent = bet;
+  document.getElementById("pfl-fb").style.display = "none";
+  document.getElementById("pfl-next").style.display = "none";
+  document.querySelectorAll("#postflop .act").forEach(b => b.disabled = false);
+}
+function pflAnswer(ans){
+  if(!pflState) return;
+  const {d, pot, bet, be, correct} = pflState; pflTotal++;
+  const ok = ans === correct; if(ok) pflScore++;
+  const rule4 = Math.min(d.outs * 4, 100);
+  const fb = document.getElementById("pfl-fb");
+  fb.className = "feedback " + (ok ? "ok" : "bad");
+  fb.innerHTML = `<b>${ok ? "✅ Correct" : "❌ Erreur"}</b> — bonne décision : <b>${correct === "c" ? "CALL" : "FOLD"}</b><br>` +
+    `Tu as <b>${d.outs} outs</b> (${d.label}).<br>` +
+    `Chance de toucher d'ici la river : <b>${d.hitProb.toFixed(1)}%</b> (règle ×4 : ~${rule4}%).<br>` +
+    `Cote du pot : payer ${bet} pour ${pot}+${bet} → équité requise = ${bet}/(${pot}+2×${bet}) = <b>${be.toFixed(1)}%</b>.<br>` +
+    `${d.hitProb.toFixed(1)}% ${d.hitProb > be ? "&gt;" : "&lt;"} ${be.toFixed(1)}% → ${correct === "c" ? "call rentable (+EV)" : "call non rentable (-EV)"}.`;
+  fb.style.display = "block";
+  document.getElementById("pfl-next").style.display = "block";
+  document.getElementById("pfl-score").textContent = `${pflScore} / ${pflTotal}`;
+  document.querySelectorAll("#postflop .act").forEach(b => b.disabled = true);
+}
+
 /* ============ MODULE EQUITE ============ */
 function runEquity(){
   const err=document.getElementById("eq-err");err.textContent="";
@@ -344,7 +440,7 @@ function runEquity(){
 }
 
 /* init */
-pfNew();poNew();
+pfNew();poNew();pflNew();
 </script>
 </body>
 </html>
