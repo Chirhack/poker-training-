@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6b3a">
+<title>Poker Ranges — Ouverture, Call, 3-bet, 4-bet</title>
+<style>
+:root{--bg:#0e1512; --card:#16201b; --line:#243029; --txt:#eaf3ee; --muted:#9fb4a8; --gold:#e9c46a; --accent:#27c281; --felt:#0b6b3a; --raise:#e4572e;}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:radial-gradient(120% 80% at 50% 0%,#13241b 0%,var(--bg) 60%); color:var(--txt); min-height:100vh;}
+a{color:var(--gold); text-decoration:none; font-weight:700;}
+header{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 14px 4px; max-width:620px; margin:0 auto; flex-wrap:wrap;}
+header h1{margin:0; font-size:19px;} header h1 span{color:var(--gold);}
+header nav{font-size:12px; display:flex; gap:12px;}
+main{max-width:620px; margin:0 auto; padding:0 12px 40px;}
+.tabs{display:flex; gap:6px; padding:10px 0; position:sticky; top:0; background:linear-gradient(#0e1512,#0e1512ee); z-index:5;}
+.tab{flex:1; padding:9px 2px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--muted); font-size:11.5px; font-weight:700; text-align:center; cursor:pointer; line-height:1.25;}
+.tab.on{background:var(--felt); color:#fff; border-color:#1aa56a;}
+.sel{margin:6px 0 10px;}
+.sel .lbl{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:8px 0 5px;}
+.chips{display:flex; flex-wrap:wrap; gap:6px;}
+.chip{padding:8px 13px; border-radius:99px; border:1px solid var(--line); background:var(--card); color:var(--txt); font-size:13px; font-weight:700; cursor:pointer;}
+.chip.on{background:var(--gold); color:#1a1405; border-color:var(--gold);}
+.chip.dis{opacity:.28; pointer-events:none;}
+.panel{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px;}
+#title{font-size:14px; font-weight:800; text-align:center; margin:2px 0 10px;}
+#title small{display:block; color:var(--muted); font-weight:500; margin-top:2px; font-size:12px;}
+#wrap{container-type:inline-size;}
+#grid{display:grid; grid-template-columns:repeat(13,minmax(0,1fr)); gap:2px;}
+.cell{aspect-ratio:1; min-width:0; overflow:hidden; display:flex; align-items:center; justify-content:center; border-radius:4px; font-weight:700; font-size:clamp(8px,2.7cqw,14px); cursor:pointer; user-select:none; letter-spacing:-.3px; border:1.5px solid transparent;}
+.cell.r{background:var(--raise); color:#fff;}
+.cell.c{background:var(--accent); color:#04170d;}
+.cell.f{background:#19231e; color:#566a5f;}
+.cell.picked{border-color:#fff; box-shadow:0 0 0 1px #000 inset;}
+#legend{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+.lg{flex:1; min-width:96px; background:#0c130f; border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:12px;}
+.lg b{display:block; font-size:17px;}
+.lg i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px;}
+#info{margin-top:10px; min-height:40px; background:#0c130f; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13px; line-height:1.5;}
+#info b{color:var(--gold);}
+.note{font-size:12.5px; color:var(--muted); line-height:1.55; margin-top:12px;}
+.note b{color:var(--txt);}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Poker Ranges <span>· 6-max · 100 BB</span></h1>
+  <nav><a href="index.html">← Trainer</a><a href="poker_room.html">🎰 Salle</a></nav>
+</header>
+<main>
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-t="open">Ouverture<br>(RFI)</div>
+    <div class="tab" data-t="vso">Face à une<br>ouverture</div>
+    <div class="tab" data-t="v3">Face à un<br>3-bet</div>
+    <div class="tab" data-t="v4">Face à un<br>4-bet</div>
+  </div>
+  <div class="sel" id="sel"></div>
+  <div class="panel">
+    <div id="title"></div>
+    <div id="wrap"><div id="grid"></div></div>
+    <div id="legend"></div>
+    <div id="info">Touche une main pour voir l'action recommandée.</div>
+  </div>
+  <div class="note" id="note"></div>
+</main>
+
+<script>
+const RK="AKQJT98765432";
+const RANK_TO_VAL={};"23456789TJQKA".split("").forEach((r,i)=>RANK_TO_VAL[r]=i+2);
+const VAL_TO_RANK={};for(const r in RANK_TO_VAL)VAL_TO_RANK[RANK_TO_VAL[r]]=r;
+function expandToken(tok){
+  const out=new Set();
+  if(tok.includes("-")){
+    const[lo,hi]=tok.split("-");
+    let a=RANK_TO_VAL[lo[0]],b=RANK_TO_VAL[hi[0]];if(a>b)[a,b]=[b,a];
+    for(let v=a;v<=b;v++)out.add(VAL_TO_RANK[v]+VAL_TO_RANK[v]);
+    return out;
+  }
+  const plus=tok.endsWith("+");const base=plus?tok.slice(0,-1):tok;
+  if(base.length===2){const v=RANK_TO_VAL[base[0]];
+    if(plus){for(let vv=v;vv<=14;vv++)out.add(VAL_TO_RANK[vv]+VAL_TO_RANK[vv]);}else out.add(base[0]+base[0]);
+  }else{const r1=base[0],r2=base[1],su=base[2];const v1=RANK_TO_VAL[r1],v2=RANK_TO_VAL[r2];
+    if(plus){for(let vv=v2;vv<v1;vv++)out.add(r1+VAL_TO_RANK[vv]+su);}else out.add(r1+r2+su);}
+  return out;
+}
+const R=str=>{const s=new Set();for(const t of str.split(/\s+/).filter(Boolean))for(const h of expandToken(t))s.add(h);return s;};
+
+/* ---------------- DONNÉES (ranges d'apprentissage, proches GTO) ---------------- */
+const OPEN={
+  UTG:"22+ A2s+ KTs+ QTs+ J9s+ T9s 98s 87s 76s AJo+ KQo",
+  MP:"22+ A2s+ K9s+ Q9s+ J9s+ T8s+ 98s 87s 76s 65s ATo+ KJo+ QJo",
+  CO:"22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 76s 65s 54s A9o+ KTo+ QTo+ JTo",
+  BTN:"22+ A2s+ K2s+ Q4s+ J6s+ T6s+ 96s+ 85s+ 74s+ 64s+ 53s+ 43s A2o+ K8o+ Q9o+ J9o+ T8o+ 98o 87o",
+  SB:"22+ A2s+ K5s+ Q7s+ J8s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A4o+ K9o+ Q9o+ JTo"
+};
+/* face à une ouverture : clé "relanceur>situation du héros" (MID = MP/CO, BTN, SB, BB) */
+const VSO={
+  "UTG>MID":{b:"QQ+ AKs AKo", c:"77-JJ AQs AJs KQs AQo"},
+  "MP>MID": {b:"QQ+ AKs AKo", c:"66-JJ AQs AJs ATs KQs QJs JTs AQo"},
+  "UTG>BTN":{b:"QQ+ AKs AKo", c:"22-JJ AQs AJs ATs KQs KJs QJs JTs T9s AQo"},
+  "MP>BTN": {b:"JJ+ AQs+ AKo A5s", c:"22-TT AJs ATs KQs KJs QJs JTs T9s 98s AQo KQo"},
+  "CO>BTN": {b:"TT+ AQs+ AKo A5s A4s", c:"22-99 AJs ATs KJs KQs QJs JTs T9s 98s AQo KQo"},
+  "UTG>SB": {b:"QQ+ AKs AKo A5s", c:"99-JJ AQs AJs KQs"},
+  "MP>SB":  {b:"JJ+ AQs+ AKo A5s A4s", c:"77-TT AJs KQs"},
+  "CO>SB":  {b:"TT+ AJs+ AQo+ KQs A5s A4s", c:"88-99 ATs KQs"},
+  "BTN>SB": {b:"99+ ATs+ AJo+ KQs A5s A4s A3s", c:"55-88 A9s KTs+ QTs+ JTs T9s"},
+  "UTG>BB": {b:"QQ+ AKs AKo A5s A4s", c:"22-JJ A9s+ KQs KJs KTs QJs QTs JTs J9s T9s 98s 87s 76s AQo AJo KQo"},
+  "MP>BB":  {b:"TT+ AQs+ AKo A5s A4s", c:"22-99 A2s+ K9s+ Q9s+ J9s+ T9s 98s 87s 76s 65s AJo+ KQo"},
+  "CO>BB":  {b:"99+ AQs+ AKo A5s A4s A3s", c:"22-88 A2s+ K8s+ Q9s+ J9s+ T9s 98s 87s 76s 65s 54s ATo+ KJo+ QJo"},
+  "BTN>BB": {b:"99+ AQs+ AKo A5s A4s A3s K9s Q9s J9s T8s 76s", c:"22-88 A2s+ K2s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A8o+ KTo+ QTo+ JTo"},
+  "SB>BB":  {b:"99+ AJs+ AQo+ KQs A5s A4s A3s", c:"22-88 A2s+ K5s+ Q7s+ J8s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A2o+ K9o+ Q9o+ J9o+ T9o 98o"}
+};
+/* face à un 3-bet : clé "ouvreur|IP/OOP" (IP = tu es en position sur le 3-beteur) */
+const V3={
+  "UTG|OOP":{b:"KK+ AKs AKo A5s", c:"TT-QQ AQs"},
+  "UTG|IP": {b:"QQ+ AKs AKo A5s A4s", c:"88-JJ AQs AJs KQs"},
+  "MP|OOP": {b:"KK+ AKs AKo A5s", c:"TT-QQ AQs AJs"},
+  "MP|IP":  {b:"QQ+ AKs AKo A5s A4s", c:"77-JJ AQs AJs ATs KQs AQo"},
+  "CO|OOP": {b:"QQ+ AKs AKo A5s A4s", c:"88-JJ AQs AJs KQs"},
+  "CO|IP":  {b:"QQ+ AKs AKo A5s A4s A3s", c:"66-JJ AQs AJs ATs KQs KJs QJs JTs AQo"},
+  "BTN|IP": {b:"QQ+ AKs AKo A5s A4s A3s", c:"55-JJ A9s+ KTs+ QTs+ JTs T9s 98s AJo+ KQo"},
+  "SB|OOP": {b:"QQ+ AKs AKo A5s A4s", c:"66-JJ AQs AJs ATs KQs KJs QJs JTs AQo"}
+};
+/* face à un 4-bet : tu avais 3-bet */
+const V4={
+  early:{b:"KK+ AKs", c:"QQ AKo", label:"4-bet d'un joueur de début de table (UTG / MP)"},
+  lateIP:{b:"KK+ AKs A5s A4s", c:"TT-QQ AQs AKo", label:"4-bet d'un joueur tardif — tu es en position"},
+  lateOOP:{b:"KK+ AKs A5s", c:"JJ-QQ AQs AKo", label:"4-bet d'un joueur tardif — tu es hors position"}
+};
+const POS=["UTG","MP","CO","BTN","SB","BB"];
+
+/* ---------------- ÉTAT ---------------- */
+const st={tab:"open",open:"UTG",hero:"BTN",raiser:"UTG",opener:"CO",ip:"IP",v4:"early",cell:null};
+const $=id=>document.getElementById(id);
+const handAt=(i,j)=>i===j?RK[i]+RK[j]:(i<j?RK[i]+RK[j]+"s":RK[j]+RK[i]+"o");
+const combosOf=h=>h.length===2?6:(h[2]==="s"?4:12);
+
+function sitOf(hero){return hero==="MP"||hero==="CO"?"MID":hero;}
+function raisersFor(hero){return POS.slice(0,POS.indexOf(hero)).filter(p=>VSO[p+">"+sitOf(hero)]);}
+function ipOptions(op){return op==="BTN"?["IP"]:op==="SB"?["OOP"]:["IP","OOP"];}
+
+/* renvoie {title, sub, cats:[{cls,label,set}], note} */
+function current(){
+  if(st.tab==="open"){
+    return{title:`Ouverture en ${st.open}`,sub:"Tout le monde s'est couché avant toi",
+      cats:[{cls:"r",label:"Relance (open)",set:R(OPEN[st.open])}],
+      note:`<b>Taille :</b> 2 à 2,5 BB (au bouton 2 à 2,5 BB, en SB 3 BB). Jamais de limp : tu relances ou tu jettes.<br><b>5 joueurs :</b> sur la table à 5 de la salle, UTG utilise la range « MP ».`};
+  }
+  if(st.tab==="vso"){
+    const d=VSO[st.raiser+">"+sitOf(st.hero)];
+    const b=R(d.b),c=new Set([...R(d.c)].filter(h=>!b.has(h)));
+    return{title:`${st.hero} face à une ouverture ${st.raiser}`,sub:"Un seul joueur a relancé avant toi",
+      cats:[{cls:"r",label:"3-bet",set:b},{cls:"c",label:"Call",set:c}],
+      note:`<b>Taille du 3-bet :</b> ~3× l'ouverture en position, 3,5 à 4× hors position (blinds).<br>Les petits As suited (A5s, A4s) sont des <b>bluffs de 3-bet</b> : ils bloquent les gros As adverses et ont de l'équité si on te paie.<br>Plus le relanceur est tardif, plus tu défends large. La BB se défend le plus large (elle a déjà investi et clôt l'action).`};
+  }
+  if(st.tab==="v3"){
+    const d=V3[st.opener+"|"+st.ip];
+    const b=R(d.b),c=new Set([...R(d.c)].filter(h=>!b.has(h)));
+    const pos=st.ip==="IP"?"en position":"hors position";
+    return{title:`Tu ouvres en ${st.opener}, on te 3-bet`,sub:`Tu es ${pos} sur le 3-beteur`,
+      cats:[{cls:"r",label:"4-bet",set:b},{cls:"c",label:"Call",set:c}],
+      note:`<b>Taille du 4-bet :</b> ~2,2× le 3-bet en position, 2,5 à 3× hors position.<br>Le reste est <b>fold</b> : ouvrir ne t'oblige pas à continuer. Hors position tu paies moins large (tu joues tout le coup sans position).<br>Les 4-bet bluff (A5s, A4s) gardent une range équilibrée : tu bloques AA/AK adverses.`};
+  }
+  const d=V4[st.v4];
+  const b=R(d.b),c=new Set([...R(d.c)].filter(h=>!b.has(h)));
+  return{title:"Tu as 3-bet, on te 4-bet",sub:d.label,
+    cats:[{cls:"r",label:"5-bet / tapis",set:b},{cls:"c",label:"Call",set:c}],
+    note:`<b>À 100 BB</b> le 5-bet est quasiment un tapis. Face à un joueur de début de table, la range de 4-bet est très forte : on ne continue qu'avec le haut de la range.<br>Tout le reste est <b>fold</b>, même des mains qui étaient de bons 3-bet (c'est normal : un 3-bet n'oblige pas à payer un 4-bet).`};
+}
+
+/* ---------------- RENDU ---------------- */
+function chips(items,sel,fn,disabled){
+  return items.map(x=>`<div class="chip ${x.v===sel?"on":""} ${disabled&&disabled(x.v)?"dis":""}" data-v="${x.v}">${x.t||x.v}</div>`).join("");
+}
+function renderSel(){
+  const el=$("sel");let h="";
+  if(st.tab==="open"){
+    h=`<div class="lbl">Ta position</div><div class="chips" data-k="open">${chips(["UTG","MP","CO","BTN","SB"].map(v=>({v})),st.open)}</div>`;
+  }else if(st.tab==="vso"){
+    const ok=raisersFor(st.hero);
+    if(!ok.includes(st.raiser))st.raiser=ok[ok.length-1];
+    h=`<div class="lbl">Ta position</div><div class="chips" data-k="hero">${chips(["MP","CO","BTN","SB","BB"].map(v=>({v})),st.hero)}</div>
+       <div class="lbl">Qui a ouvert</div><div class="chips" data-k="raiser">${chips(POS.slice(0,5).map(v=>({v})),st.raiser,null,v=>!ok.includes(v))}</div>`;
+  }else if(st.tab==="v3"){
+    const opts=ipOptions(st.opener);if(!opts.includes(st.ip))st.ip=opts[0];
+    h=`<div class="lbl">Tu as ouvert en</div><div class="chips" data-k="opener">${chips(["UTG","MP","CO","BTN","SB"].map(v=>({v})),st.opener)}</div>
+       <div class="lbl">Position face au 3-beteur</div><div class="chips" data-k="ip">${chips([{v:"IP",t:"En position"},{v:"OOP",t:"Hors position"}],st.ip,null,v=>!opts.includes(v))}</div>`;
+  }else{
+    h=`<div class="lbl">Situation</div><div class="chips" data-k="v4">${chips([{v:"early",t:"4-bet tôt (UTG/MP)"},{v:"lateIP",t:"4-bet tardif · en position"},{v:"lateOOP",t:"4-bet tardif · hors position"}],st.v4)}</div>`;
+  }
+  el.innerHTML=h;
+  el.querySelectorAll(".chips").forEach(box=>box.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{st[box.dataset.k]=c.dataset.v;st.cell=null;draw();}));
+}
+function catOf(cats,h){for(const c of cats)if(c.set.has(h))return c;return null;}
+function draw(){
+  renderSel();
+  const cur=current();
+  $("title").innerHTML=`${cur.title}<small>${cur.sub}</small>`;
+  const g=$("grid");g.innerHTML="";
+  const counts=cur.cats.map(()=>0);let total=0;
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+    const h=handAt(i,j);const c=catOf(cur.cats,h);
+    const d=document.createElement("div");
+    d.className="cell "+(c?c.cls:"f")+(st.cell===h?" picked":"");
+    d.textContent=h.length===2?h:h;
+    d.onclick=()=>{st.cell=h;showInfo(cur,h);g.querySelectorAll(".cell.picked").forEach(x=>x.classList.remove("picked"));d.classList.add("picked");};
+    g.appendChild(d);
+    if(c){counts[cur.cats.indexOf(c)]+=combosOf(h);total+=combosOf(h);}
+  }
+  const color={r:"var(--raise)",c:"var(--accent)"};
+  $("legend").innerHTML=cur.cats.map((c,k)=>`<div class="lg"><i style="background:${color[c.cls]}"></i>${c.label}<b>${(100*counts[k]/1326).toFixed(1).replace(".",",")} %</b></div>`).join("")+
+    `<div class="lg"><i style="background:#2a3a31"></i>Fold<b>${(100*(1326-total)/1326).toFixed(1).replace(".",",")} %</b></div>`;
+  $("note").innerHTML=cur.note;
+  if(st.cell)showInfo(cur,st.cell);else $("info").textContent="Touche une main pour voir l'action recommandée.";
+}
+function showInfo(cur,h){
+  const c=catOf(cur.cats,h);
+  const type=h.length===2?"paire":h[2]==="s"?"assorties (suited)":"dépareillées (offsuit)";
+  $("info").innerHTML=`<b>${h}</b> — ${type}, ${combosOf(h)} combos<br>Action : <b>${c?c.label.toUpperCase():"FOLD"}</b>`;
+}
+document.querySelectorAll("#tabs .tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll("#tabs .tab").forEach(x=>x.classList.toggle("on",x===t));
+  st.tab=t.dataset.t;st.cell=null;draw();
+});
+draw();
+</script>
+</body>
+</html>
