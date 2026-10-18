@@ -332,18 +332,26 @@ function chen(c1,c2){
 const ALL_SCORES=(()=>{const d=fullDeck(),out=[];for(let i=0;i<d.length;i++)for(let j=i+1;j<d.length;j++)out.push(chen(d[i],d[j]));return out.sort((a,b)=>b-a);})();
 function rangeThreshold(pct){return ALL_SCORES[Math.max(0,Math.min(ALL_SCORES.length-1,Math.floor(pct*ALL_SCORES.length)-1))];}
 
-/* équité héros contre des adversaires tirés dans le top pct% des mains */
-function equityVsRange(hero,bd,opps,pct,iters){
+/* équité héros contre des adversaires tirés dans le top pct% des mains.
+   connect=true : l'adversaire a MISÉ / PAYÉ sur ce board -> sa main doit toucher le board
+   (paire ou mieux avec une de ses cartes) ; les mains qui ratent ne passent que 20 % du temps
+   (tirages / bluffs), 10 % à la river. */
+function equityVsRange(hero,bd,opps,pct,iters,connect){
   const known=new Set([...hero,...bd]);const base=fullDeck().filter(c=>!known.has(c));
   const thr=pct>=1?-99:rangeThreshold(pct);
+  const doConnect=!!connect&&bd.length>=3;
+  const bdCat=doConnect?evaluate(bd)[0]:0;
+  const missP=bd.length>=5?0.10:0.20;
   let eq=0;
   for(let it=0;it<iters;it++){
     const rest=base.slice();const vills=[];
     for(let o=0;o<opps;o++){
       let a=0,b=1;
-      for(let t=0;t<60;t++){
+      for(let t=0;t<120;t++){
         const x=(Math.random()*rest.length)|0;let y=(Math.random()*(rest.length-1))|0;if(y>=x)y++;
-        if(chen(rest[x],rest[y])>=thr){a=x;b=y;break;}
+        if(chen(rest[x],rest[y])<thr)continue;
+        if(doConnect&&evaluate([rest[x],rest[y],...bd])[0]<=bdCat&&Math.random()>missP)continue;
+        a=x;b=y;break;
       }
       const ca=rest[a],cb=rest[b];
       rest.splice(Math.max(a,b),1);rest.splice(Math.min(a,b),1);
@@ -889,12 +897,12 @@ function analyseOne(d){
   const opps=Math.max(1,d.opps);
   const betFrac=d.toCall>0?d.toCall/Math.max(1,d.potBefore-d.toCall):0;
   const pct=d.toCall>0?(betFrac<0.4?0.45:betFrac<0.8?0.33:0.25):0.55;
-  const eqR=equityVsRange(d.cards,d.board,opps,pct,2200);
+  const eqR=equityVsRange(d.cards,d.board,opps,pct,2200,d.toCall>0);
   const eqRand=equityVsRange(d.cards,d.board,opps,1,1500);
   res.meta.eqR=eqR;
   const req=d.toCall>0?d.toCall/(d.potBefore+d.toCall):null;
   const P=x=>(100*x).toFixed(0)+"%";
-  res.lines.push(`Équité vs range adverse (~top ${Math.round(pct*100)}%) : <b>${P(eqR)}</b> · vs main au hasard : ${P(eqRand)}${req!==null?` · équité requise : <b>${P(req)}</b>`:""}${opps>1?` · ${opps} adversaires`:""}`);
+  res.lines.push(`Équité vs range adverse (${d.toCall>0?"mains qui touchent le board":"~top "+Math.round(pct*100)+"%"}) : <b>${P(eqR)}</b> · vs main au hasard : ${P(eqRand)}${req!==null?` · équité requise : <b>${P(req)}</b>`:""}${opps>1?` · ${opps} adversaires`:""}`);
 
   if(d.toCall>0){
     if(type==="fold"){
