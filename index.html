@@ -101,6 +101,7 @@
 <header>
   <h1>🃏 Poker Trainer <span class="chip">NL</span></h1>
   <p>Texas Hold'em No Limit · 6-max · entraînement décisions</p>
+  <p><a href="poker_coach.html" style="color:var(--gold);font-weight:700;font-size:13px">🎯 Mon profil : points forts &amp; à travailler →</a></p>
 </header>
 
 <div class="tabs">
@@ -292,7 +293,7 @@ const RFI_RAW={
   MP:"22+ A2s+ K9s+ Q9s+ J9s+ T8s+ 98s 87s 76s 65s ATo+ KJo+ QJo",
   CO:"22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 76s 65s 54s A9o+ KTo+ QTo+ JTo",
   BTN:"22+ A2s+ K2s+ Q4s+ J6s+ T6s+ 96s+ 85s+ 74s+ 64s+ 53s+ 43s A2o+ K8o+ Q9o+ J9o+ T8o+ 98o 87o",
-  SB:"22+ A2s+ K5s+ Q7s+ J8s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A4o+ K9o+ Q9o+ JTo"
+  SB:"22+ A2s+ K2s+ Q4s+ J6s+ T6s+ 96s+ 85s+ 75s+ 64s+ 54s A2o+ K7o+ Q9o+ J9o+ T9o 98o"
 };
 const POS_FR={UTG:"early — le plus serré",MP:"milieu",CO:"cutoff",BTN:"bouton — le plus large",SB:"petite blinde"};
 const POSITIONS=["UTG","MP","CO","BTN","SB"];
@@ -604,6 +605,7 @@ function runEquity(){
 
 /* init */
 pfNew();poNew();pflNew();vsoNew();renderStats();
+if(location.hash){const ht=document.querySelector('.tab[data-screen="'+location.hash.slice(1)+'"]');if(ht)ht.click();}
 </script>
 </body>
 </html>
