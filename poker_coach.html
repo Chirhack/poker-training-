@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6b3a">
+<title>Poker Coach — Mon profil</title>
+<style>
+:root{--bg:#0e1512; --card:#16201b; --line:#243029; --txt:#eaf3ee; --muted:#9fb4a8; --gold:#e9c46a; --accent:#27c281; --felt:#0b6b3a; --red:#e76f51; --orange:#f59e0b;}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:radial-gradient(120% 80% at 50% 0%,#13241b 0%,var(--bg) 60%); color:var(--txt); min-height:100vh;}
+a{color:var(--gold); text-decoration:none; font-weight:700;}
+header{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 14px 4px; max-width:640px; margin:0 auto; flex-wrap:wrap;}
+header h1{margin:0; font-size:19px;} header h1 span{color:var(--gold);}
+header nav{font-size:12px; display:flex; gap:12px; flex-wrap:wrap;}
+main{max-width:640px; margin:0 auto; padding:6px 12px 40px;}
+h2{font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:20px 2px 8px;}
+.panel{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin-bottom:10px;}
+.kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.kpis div{background:#0c130f; border:1px solid var(--line); border-radius:10px; padding:9px 4px; text-align:center;}
+.kpis .n{font-size:20px; font-weight:800; color:var(--gold);} .kpis .k{font-size:11px; color:var(--muted);}
+.skill{border:1px solid var(--line); border-left-width:4px; border-radius:12px; padding:10px 12px; margin-bottom:8px; background:#101a15;}
+.skill.weak{border-left-color:var(--red);} .skill.strong{border-left-color:var(--accent);} .skill.mid{border-left-color:var(--orange);}
+.skill .top{display:flex; justify-content:space-between; gap:8px; align-items:baseline;}
+.skill .nm{font-weight:800; font-size:14px;}
+.skill .sc{font-weight:800; font-size:16px;}
+.skill.weak .sc{color:var(--red);} .skill.strong .sc{color:var(--accent);} .skill.mid .sc{color:var(--orange);}
+.bar{height:6px; background:#0c130f; border-radius:99px; margin:7px 0; overflow:hidden;}
+.bar i{display:block; height:100%; border-radius:99px;}
+.weak .bar i{background:var(--red);} .strong .bar i{background:var(--accent);} .mid .bar i{background:var(--orange);}
+.skill .meta{font-size:11.5px; color:var(--muted);}
+.skill .adv{font-size:13px; line-height:1.5; margin-top:6px;}
+.skill .go{display:inline-block; margin-top:7px; font-size:12px; padding:6px 11px; border:1px solid var(--gold); border-radius:99px;}
+.leak{display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--line);}
+.leak:last-child{border-bottom:none;}
+.leak b{color:var(--red); white-space:nowrap;}
+.empty{color:var(--muted); font-size:13px; line-height:1.55;}
+.note{font-size:12px; color:var(--muted); line-height:1.55; margin-top:14px;}
+.err{font-size:12.5px; line-height:1.5; padding:7px 0; border-bottom:1px solid var(--line); color:#cdd8d2;}
+.err:last-child{border-bottom:none;} .err b{color:var(--gold);}
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+td{padding:6px 4px; border-bottom:1px solid var(--line);} td.r{text-align:right; white-space:nowrap;}
+.btn{display:block; width:100%; margin-top:12px; padding:12px; border-radius:12px; border:1px solid var(--line); background:#1a2620; color:var(--txt); font-weight:700; font-size:13px; cursor:pointer;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 Mon profil <span>· forces &amp; faiblesses</span></h1>
+  <nav><a href="index.html">← Trainer</a><a href="poker_room.html">🎰 Salle</a><a href="poker_ranges.html">📊 Ranges</a></nav>
+</header>
+<main id="main"></main>
+
+<script>
+const MIN_N=6;
+const $=id=>document.getElementById(id);
+function load(k){try{const r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch(e){return null;}}
+const T=load("pokerTrainerStats_v1"), S=load("pokerRoomStats_v1");
+
+/* ---------- compétences ---------- */
+const skills=[];
+function add(o){if(o.n>0)skills.push(o);}
+if(T){
+  for(const[pos,v]of Object.entries((T.preflop||{}).byPos||{}))
+    add({id:"t_pre_"+pos,name:`Ouvrir en ${pos}`,src:"Trainer · Préflop",n:v.total,score:v.correct/v.total,
+      adv:`Révise la range d'ouverture en ${pos} : quelles mains relancer, lesquelles jeter.`,links:[["📊 Voir la range","poker_ranges.html#open"],["Entraînement","index.html#preflop"]]});
+  for(const[pos,v]of Object.entries((T.vsopen||{}).byPos||{}))
+    add({id:"t_vso_"+pos,name:`Répondre à une ouverture ${pos}`,src:"Trainer · vs Open",n:v.total,score:v.correct/v.total,
+      adv:`Face à ${pos} : 3-bet les meilleures mains, call les mains jouables, fold le reste. Regarde la grille « Face à une ouverture ».`,links:[["📊 Voir la range","poker_ranges.html#vso"],["Entraînement","index.html#vsopen"]]});
+  const pf=T.postflop;if(pf&&pf.total)add({id:"t_post",name:"Tirages : outs et équité",src:"Trainer · Postflop",n:pf.total,score:pf.correct/pf.total,
+      adv:"Compte tes outs, multiplie par 4 au flop (par 2 au turn) pour l'équité, puis compare à l'équité requise = mise / (pot + 2×mise).",links:[["Entraînement","index.html#postflop"]]});
+  const po=T.potodds;if(po&&po.total)add({id:"t_odds",name:"Cotes du pot",src:"Trainer · Cotes",n:po.total,score:po.correct/po.total,
+      adv:"Réflexe à automatiser : équité requise = mise / (pot + 2×mise). Si ton équité est au-dessus, call ; sinon fold.",links:[["Entraînement","index.html#potodds"]]});
+}
+const CAT={
+  pre_open:["Ouvertures préflop","Ouvre seulement les mains de ta range de position ; jamais de limp.",[["📊 Voir la range","poker_ranges.html#open"]]],
+  pre_vs_open:["Réponse à une ouverture","Applique 3-bet / call / fold selon la position du relanceur et la tienne.",[["📊 Voir la range","poker_ranges.html#vso"]]],
+  post_call:["Calls postflop","Avant de payer : calcule l'équité requise et compare à tes outs / ta main. Pas de call « par curiosité ».",[["Cotes du pot","index.html#potodds"],["Tirages","index.html#postflop"]]],
+  post_fold:["Folds postflop","Tu te couches parfois avec de bonnes cotes. Compare toujours ton équité à la cote avant de jeter.",[["Cotes du pot","index.html#potodds"]]],
+  post_raise:["Relances postflop","Relance pour la valeur (main forte) ou en semi-bluff avec un vrai tirage, pas en bluff pur à faible équité.",[]],
+  post_bet:["Mises postflop","Mise pour la valeur avec une main forte ; ajuste la taille à la force de ta main.",[]],
+  post_check:["Checks postflop","Avec une main forte, mise pour la valeur plutôt que de checker systématiquement.",[]]
+};
+if(S){
+  for(const[k,v]of Object.entries(S.cat||{}))if(CAT[k])add({id:"r_"+k,name:CAT[k][0],src:"Salle · en situation réelle",n:v.n,score:(v.g+0.5*v.o)/v.n,adv:CAT[k][1],links:CAT[k][2]});
+  for(const[p,v]of Object.entries(S.pos||{}))
+    add({id:"r_pos_"+p,name:`Préflop en ${p}`,src:"Salle · par position",n:v.n,score:(v.g+0.5*v.o)/v.n,
+      adv:`Beaucoup d'erreurs préflop en ${p} : revois les ranges d'ouverture et de défense depuis cette place.`,links:[["📊 Voir les ranges","poker_ranges.html#open"]]});
+}
+const pri=s=>(1-s.score)*Math.sqrt(s.n);
+const reliable=skills.filter(s=>s.n>=MIN_N);
+const weak=reliable.filter(s=>s.score<0.62).sort((a,b)=>pri(b)-pri(a));
+const strong=reliable.filter(s=>s.score>=0.8).sort((a,b)=>b.score*Math.sqrt(b.n)-a.score*Math.sqrt(a.n));
+const mid=reliable.filter(s=>s.score>=0.62&&s.score<0.8).sort((a,b)=>a.score-b.score);
+const pct=x=>Math.round(100*x)+"%";
+
+function skillCard(s,cls){
+  const links=(s.links||[]).map(l=>`<a class="go" href="${l[1]}">${l[0]}</a>`).join(" ");
+  return `<div class="skill ${cls}"><div class="top"><div class="nm">${s.name}</div><div class="sc">${pct(s.score)}</div></div>
+    <div class="bar"><i style="width:${Math.round(s.score*100)}%"></i></div>
+    <div class="meta">${s.src} · ${s.n} réponses</div>
+    ${cls!=="strong"?`<div class="adv">${s.adv}</div>${links}`:""}</div>`;
+}
+
+/* ---------- erreurs récurrentes ---------- */
+const TAGS={
+  limp:"Tu limpes (tu suis la grosse blinde) : relance ou jette.",
+  open_hors_range:"Tu ouvres des mains hors de ta range de position.",
+  fold_range_ouverture:"Tu jettes des mains qui font partie de ta range d'ouverture (trop serré).",
+  "3bet_manque":"Tu jettes des mains assez fortes pour 3-bet face à une ouverture (trop passif).",
+  defense_hors_range:"Tu défends (call / 3-bet) des mains hors range face à une ouverture.",
+  fold_trop_serre:"Tu te couches alors que la cote du pot justifiait un call.",
+  call_non_rentable:"Tu paies sans l'équité nécessaire (call non rentable).",
+  bluff_risque:"Relances de bluff avec très peu d'équité.",
+  check_valeur_perdue:"Tu checks des mains fortes : valeur perdue.",
+  surmise:"Mises trop grosses par rapport à la force de ta main."
+};
+const tags=Object.entries((S&&S.tags)||{}).sort((a,b)=>b[1]-a[1]).filter(t=>TAGS[t[0]]);
+
+/* ---------- style de jeu ---------- */
+function style(){
+  if(!S||S.hands<20)return null;
+  const vp=100*S.vpip/S.hands,pf=100*S.pfr/S.hands,out=[];
+  if(vp>36)out.push(`<b>VPIP ${Math.round(vp)}% — tu joues trop de mains.</b> Repère à 5 joueurs : 25-32 %. Resserre surtout les mains marginales hors position.`);
+  else if(vp<18)out.push(`<b>VPIP ${Math.round(vp)}% — tu es très serré.</b> Repère à 5 joueurs : 25-32 %. Tu laisses passer des ouvertures rentables (surtout CO, bouton, SB).`);
+  else out.push(`<b>VPIP ${Math.round(vp)}%</b> : dans la bonne zone (25-32 % visé à 5 joueurs).`);
+  if(vp-pf>12)out.push(`<b>PFR ${Math.round(pf)}% — tu paies trop, tu relances pas assez.</b> Un écart VPIP − PFR supérieur à ~10 points = trop de calls passifs. Préfère relancer ou jeter.`);
+  else out.push(`<b>PFR ${Math.round(pf)}%</b> : l'écart avec ton VPIP est sain (tu relances la plupart des mains que tu joues).`);
+  return out;
+}
+
+/* ---------- rendu ---------- */
+function render(){
+  const m=$("main");let h="";
+  const hands=S?S.hands:0,dec=S?S.good+S.ok+S.bad:0,trn=T?["preflop","vsopen","postflop","potodds"].reduce((a,k)=>a+((T[k]||{}).total||0),0):0;
+  h+=`<div class="panel"><div class="kpis"><div><div class="n">${hands}</div><div class="k">mains en salle</div></div><div><div class="n">${dec?pct(S.good/dec):"—"}</div><div class="k">décisions ✅</div></div><div><div class="n">${trn}</div><div class="k">réponses trainer</div></div></div></div>`;
+
+  if(!reliable.length){
+    h+=`<div class="panel empty"><b>Pas encore assez de données.</b><br>Il faut au moins ${MIN_N} réponses dans une même catégorie pour dégager une tendance fiable.<br><br>
+      → Fais quelques dizaines de questions dans le <a href="index.html">trainer</a> et joue une vingtaine de mains dans la <a href="poker_room.html">salle</a>. Reviens ici ensuite : ton profil se construit tout seul.</div>`;
+    m.innerHTML=h;return;
+  }
+
+  h+=`<h2>🔴 À travailler en priorité</h2>`;
+  h+=weak.length?weak.slice(0,3).map(s=>skillCard(s,"weak")).join(""):`<div class="panel empty">Aucun point faible marqué pour l'instant : continue à jouer pour affiner le profil.</div>`;
+  if(weak.length>3)h+=`<div class="note">+ ${weak.length-3} autre(s) point(s) faible(s) dans le détail plus bas.</div>`;
+
+  h+=`<h2>🟢 Tes points forts</h2>`;
+  h+=strong.length?strong.slice(0,4).map(s=>skillCard(s,"strong")).join(""):`<div class="panel empty">Pas encore de point fort net (≥ 80 % sur au moins ${MIN_N} réponses).</div>`;
+
+  const st=style();
+  h+=`<h2>🎲 Style de jeu</h2>`;
+  h+=st?`<div class="panel">${st.map(x=>`<div style="margin:6px 0;font-size:13px;line-height:1.5">${x}</div>`).join("")}</div>`:`<div class="panel empty">Joue ${S?Math.max(0,20-S.hands):20} main(s) de plus en salle pour analyser ton VPIP / PFR.</div>`;
+
+  if(tags.length){
+    h+=`<h2>⚠️ Erreurs récurrentes</h2><div class="panel">`+tags.slice(0,6).map(([k,n])=>`<div class="leak"><span>${TAGS[k]}</span><b>×${n}</b></div>`).join("")+`</div>`;
+  }
+
+  if(mid.length)h+=`<h2>🟠 À consolider</h2>`+mid.slice(0,4).map(s=>skillCard(s,"mid")).join("");
+
+  h+=`<h2>📋 Toutes les compétences</h2><div class="panel"><table>`+
+    skills.slice().sort((a,b)=>a.score-b.score).map(s=>`<tr><td>${s.name}<br><span style="color:var(--muted);font-size:11px">${s.src}</span></td><td class="r">${s.n<MIN_N?`<span style="color:var(--muted)">${s.n} rép. (peu)</span>`:pct(s.score)+` · ${s.n}`}</td></tr>`).join("")+`</table></div>`;
+
+  if(S&&S.recent&&S.recent.length){
+    h+=`<h2>❌ Tes dernières erreurs en salle</h2><div class="panel">`+S.recent.slice(0,8).map(e=>`<div class="err"><b>Main #${e.h} · ${e.t}</b><br>${e.v}</div>`).join("")+`</div>`;
+  }
+
+  h+=`<button class="btn" id="cp">📋 Copier mon profil (pour un coaching détaillé avec Claude)</button>
+  <div class="note">Ces données restent sur <b>cet appareil et ce navigateur</b> (stockage local). Si tu changes de téléphone ou vides le cache, elles sont perdues. Fiabilité : plus tu as de réponses par catégorie, plus le verdict est solide — en dessous de 20-30 réponses, prends-le comme une tendance. L'analyse de la salle est une estimation (équité vs range, ranges d'apprentissage), pas un solveur.</div>`;
+  m.innerHTML=h;
+  $("cp").onclick=copyProfile;
+}
+
+function copyProfile(){
+  const L=[];L.push("PROFIL POKER — "+new Date().toLocaleDateString("fr-FR"));
+  L.push(`Salle : ${S?S.hands:0} mains, décisions ✅${S?S.good:0} ⚠️${S?S.ok:0} ❌${S?S.bad:0}`+(S&&S.hands?`, VPIP ${Math.round(100*S.vpip/S.hands)}%, PFR ${Math.round(100*S.pfr/S.hands)}%`:""));
+  L.push("POINTS FAIBLES : "+(weak.map(s=>`${s.name} ${pct(s.score)} (${s.n})`).join(" ; ")||"aucun net"));
+  L.push("POINTS FORTS : "+(strong.map(s=>`${s.name} ${pct(s.score)} (${s.n})`).join(" ; ")||"aucun net"));
+  if(tags.length)L.push("ERREURS RÉCURRENTES : "+tags.map(([k,n])=>`${TAGS[k]} ×${n}`).join(" | "));
+  const t=L.join("\n");
+  const done=()=>{$("cp").textContent="✅ Profil copié — colle-le dans le chat";};
+  if(navigator.clipboard)navigator.clipboard.writeText(t).then(done,()=>fallback(t,done));else fallback(t,done);
+}
+function fallback(t,done){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");done();}catch(e){}a.remove();}
+
+render();
+</script>
+</body>
+</html>
