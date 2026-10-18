@@ -175,6 +175,7 @@ button{font-family:inherit;}
   <label>Vitesse
     <select id="speedSel"><option value="1">Normale</option><option value="0.45">Rapide</option></select>
   </label>
+  <a class="tbtn" href="poker_coach.html">🎯 Mon profil</a>
   <a class="tbtn" href="poker_ranges.html">📊 Ranges</a>
   <a class="tbtn" href="index.html">← Trainer</a>
 </div>
@@ -281,7 +282,7 @@ const RFI_RAW={
   MP:"22+ A2s+ K9s+ Q9s+ J9s+ T8s+ 98s 87s 76s 65s ATo+ KJo+ QJo",
   CO:"22+ A2s+ K7s+ Q8s+ J8s+ T8s+ 97s+ 86s+ 76s 65s 54s A9o+ KTo+ QTo+ JTo",
   BTN:"22+ A2s+ K2s+ Q4s+ J6s+ T6s+ 96s+ 85s+ 74s+ 64s+ 53s+ 43s A2o+ K8o+ Q9o+ J9o+ T8o+ 98o 87o",
-  SB:"22+ A2s+ K5s+ Q7s+ J8s+ T8s+ 97s+ 86s+ 75s+ 65s 54s A4o+ K9o+ Q9o+ JTo"
+  SB:"22+ A2s+ K2s+ Q4s+ J6s+ T6s+ 96s+ 85s+ 75s+ 64s+ 54s A2o+ K7o+ Q9o+ J9o+ T9o 98o"
 };
 function expandToken(tok){
   const out=new Set();
@@ -847,7 +848,8 @@ function analyseOne(d){
   const isCheck=type==="call"&&d.toCall<=0;
   const streetName=["Préflop","Flop","Turn","River"][d.street];
   const label=isCheck?"Check":type==="call"?`Call ${fmt(d.toCall)}`:type==="fold"?"Fold":(d.currentBet===0?`Mise ${fmt(act.to)}`:`Relance à ${fmt(act.to)}`);
-  const res={title:`${streetName} · ${label}`,lines:[],level:"info",verdict:""};
+  const res={title:`${streetName} · ${label}`,lines:[],level:"info",verdict:"",
+    meta:{street:d.street,pos:d.pos,type,toCall:d.toCall,rc:d.pre.raiseCount,heroRaiser:d.pre.lastRaiser===0,raiserPos:d.raiserPos}};
   const cardsTxt=d.cards.map(cardStr).join(" ");
   res.lines.push(`Main ${cardsTxt} (${d.pos})${d.board.length?` sur ${d.board.map(cardStr).join(" ")}`:""} · pot ${fmt(d.potBefore)}${d.toCall>0?` · à payer ${fmt(d.toCall)}`:""}`);
 
@@ -889,6 +891,7 @@ function analyseOne(d){
   const pct=d.toCall>0?(betFrac<0.4?0.45:betFrac<0.8?0.33:0.25):0.55;
   const eqR=equityVsRange(d.cards,d.board,opps,pct,2200);
   const eqRand=equityVsRange(d.cards,d.board,opps,1,1500);
+  res.meta.eqR=eqR;
   const req=d.toCall>0?d.toCall/(d.potBefore+d.toCall):null;
   const P=x=>(100*x).toFixed(0)+"%";
   res.lines.push(`Équité vs range adverse (~top ${Math.round(pct*100)}%) : <b>${P(eqR)}</b> · vs main au hasard : ${P(eqRand)}${req!==null?` · équité requise : <b>${P(req)}</b>`:""}${opps>1?` · ${opps} adversaires`:""}`);
@@ -943,12 +946,45 @@ function renderAnalysis(list,net){
    STATS DE SESSION (localStorage)
    ============================================================ */
 const SKEY="pokerRoomStats_v1";
-let S={hands:0,net:0,vpip:0,pfr:0,good:0,ok:0,bad:0};
+const freshS=()=>({hands:0,net:0,vpip:0,pfr:0,good:0,ok:0,bad:0,cat:{},pos:{},tags:{},recent:[]});
+let S=freshS();
 try{const r=localStorage.getItem(SKEY);if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
 function saveS(){try{localStorage.setItem(SKEY,JSON.stringify(S));}catch(e){}}
+
+/* catégorie de compétence + type d'erreur, pour le profil (poker_coach.html) */
+function classify(x){
+  const m=x.meta,t=m.type,lv=x.level;let cat=null,tag=null;
+  if(m.street===0){
+    if(m.rc===0){
+      cat="pre_open";
+      if(lv==="bad")tag=t==="raise"?"open_hors_range":t==="call"?"limp":null;
+      else if(lv==="ok"&&t==="fold")tag="fold_range_ouverture";
+    }else if(m.rc===1&&!m.heroRaiser){
+      cat="pre_vs_open";
+      if(lv==="bad")tag=t==="fold"?"3bet_manque":"defense_hors_range";
+    }
+  }else if(m.toCall>0){
+    cat=t==="fold"?"post_fold":t==="call"?"post_call":"post_raise";
+    if(lv==="bad")tag=t==="fold"?"fold_trop_serre":t==="call"?"call_non_rentable":"bluff_risque";
+  }else{
+    cat=t==="call"?"post_check":"post_bet";
+    if(t==="call"&&lv==="ok")tag="check_valeur_perdue";
+    if(t==="raise"&&/Surmise/.test(x.verdict))tag="surmise";
+  }
+  return{cat,tag};
+}
+function bump(o,k,lv){const r=o[k]||(o[k]={n:0,g:0,o:0,b:0});r.n++;if(lv==="good")r.g++;else if(lv==="ok")r.o++;else r.b++;}
 function recordSession(list,net){
   S.hands++;S.net+=net;if(flags.vpip)S.vpip++;if(flags.pfr)S.pfr++;
-  for(const x of list){if(x.level==="good")S.good++;else if(x.level==="ok")S.ok++;else if(x.level==="bad")S.bad++;}
+  for(const x of list){
+    if(x.level==="good")S.good++;else if(x.level==="ok")S.ok++;else if(x.level==="bad")S.bad++;
+    if(x.level==="info"||!x.meta)continue;
+    const{cat,tag}=classify(x);
+    if(cat)bump(S.cat,cat,x.level);
+    if(x.meta.street===0&&cat)bump(S.pos,x.meta.pos,x.level);
+    if(tag)S.tags[tag]=(S.tags[tag]||0)+1;
+    if(x.level==="bad"){S.recent.unshift({h:handNo,t:x.title,v:x.verdict.replace(/<[^>]+>/g,"")});S.recent=S.recent.slice(0,15);}
+  }
   saveS();renderStats();
 }
 function renderStats(){
@@ -964,7 +1000,7 @@ function renderStats(){
     cell(dec?Math.round(100*S.good/dec)+"%":"—","décisions ✅")+
     `</div><div class="sum" style="margin-top:10px">✅ ${S.good} · ⚠️ ${S.ok} · ❌ ${S.bad}<br><span style="color:var(--muted);font-size:11.5px">Repères 5 joueurs : VPIP ~25-32 %, PFR ~20-26 %. Trop de VPIP avec peu de PFR = tu paies trop de mains.</span></div>`+
     `<button class="cpbtn" id="btnResetS">Réinitialiser les stats</button>`;
-  $("btnResetS").onclick=()=>{if(confirm("Réinitialiser les stats de session ?")){S={hands:0,net:0,vpip:0,pfr:0,good:0,ok:0,bad:0};saveS();renderStats();}};
+  $("btnResetS").onclick=()=>{if(confirm("Réinitialiser les stats de session ?")){S=freshS();saveS();renderStats();}};
 }
 
 /* ============================================================
