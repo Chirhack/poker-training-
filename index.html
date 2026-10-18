@@ -82,6 +82,18 @@
            background:linear-gradient(180deg,var(--accent),var(--accent2)); color:#06140d;
            font-weight:800; font-size:16px; cursor:pointer;}
   .err{color:var(--red); font-size:13px; margin-top:8px; min-height:16px;}
+  .statmod{border-bottom:1px solid var(--line); padding:12px 0;}
+  .statmod:last-child{border-bottom:none;}
+  .statmod-head{display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:700;}
+  .statacc{font-size:16px; font-weight:800;}
+  .statacc.good{color:var(--accent);} .statacc.mid{color:var(--gold);} .statacc.bad{color:var(--red);} .statacc.neutral{color:var(--muted);}
+  .statsub{font-size:11px; color:var(--muted); margin-top:2px;}
+  .statpos{margin-top:8px; display:flex; flex-direction:column; gap:4px;}
+  .statposrow{display:flex; justify-content:space-between; font-size:12px; color:var(--txt);
+              background:#0c130f; border:1px solid var(--line); border-radius:8px; padding:6px 10px;}
+  .statposrow.leak{border-color:var(--red); background:#251512;}
+  .resetbtn{width:100%; margin-top:16px; padding:13px; border-radius:12px; border:1px solid var(--line);
+            background:transparent; color:var(--muted); font-weight:700; font-size:13px; cursor:pointer;}
   footer{text-align:center; font-size:11px; color:var(--muted); padding:10px 20px 30px; line-height:1.5;}
 </style>
 </head>
@@ -97,6 +109,7 @@
   <div class="tab" data-screen="postflop">Postflop</div>
   <div class="tab" data-screen="potodds">Cotes</div>
   <div class="tab" data-screen="equity">Équité</div>
+  <div class="tab" data-screen="stats">Stats</div>
 </div>
 
 <!-- ============ PREFLOP ============ -->
@@ -202,9 +215,19 @@
   <div class="hint">Méthode Monte-Carlo : l'app simule des milliers de mains au hasard et compte tes victoires. Cartes : rang + couleur (s=pique, h=cœur, d=carreau, c=trèfle). Ex : <b>As</b> = As de pique.</div>
 </section>
 
+<!-- ============ STATS ============ -->
+<section class="screen" id="stats">
+  <div class="panel">
+    <div id="stats-content"></div>
+    <button class="resetbtn" onclick="resetStats()">Réinitialiser les stats</button>
+  </div>
+  <div class="hint">Stats cumulées sur cet appareil (sauvegardées hors-ligne). Une position passe en <b>🔴 fuite</b> dès 5 mains jouées avec moins de 60% de bonnes décisions.</div>
+</section>
+
 <footer>
   Ranges d'apprentissage (proches GTO), pas un solveur exact. Le poker reste un jeu à variance.<br>
-  Astuce : menu du navigateur → « Ajouter à l'écran d'accueil » pour l'utiliser comme une app.
+  Astuce : menu du navigateur → « Ajouter à l'écran d'accueil » pour l'utiliser comme une app.<br>
+  <a href="poker_room.html" style="color:var(--gold);font-weight:700">🎰 Salle de simulation (table à 5 joueurs) →</a>
 </footer>
 
 <script>
@@ -305,7 +328,64 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));
   t.classList.add("active");document.getElementById(t.dataset.screen).classList.add("active");
+  if(t.dataset.screen==="stats")renderStats();
 });
+
+/* ============ STATS DE SESSION (persistees, localStorage) ============ */
+const STATS_KEY="pokerTrainerStats_v1";
+function emptyStats(){return{
+  preflop:{total:0,correct:0,byPos:{}},
+  vsopen:{total:0,correct:0,byPos:{}},
+  postflop:{total:0,correct:0},
+  potodds:{total:0,correct:0}
+};}
+function loadStats(){
+  try{const raw=localStorage.getItem(STATS_KEY);if(raw){const p=JSON.parse(raw);return Object.assign(emptyStats(),p);}}catch(e){}
+  return emptyStats();
+}
+let stats=loadStats();
+function saveStats(){try{localStorage.setItem(STATS_KEY,JSON.stringify(stats));}catch(e){}}
+function recordStat(mod,ok,pos){
+  const m=stats[mod];m.total++;if(ok)m.correct++;
+  if(pos){if(!m.byPos[pos])m.byPos[pos]={total:0,correct:0};m.byPos[pos].total++;if(ok)m.byPos[pos].correct++;}
+  saveStats();
+}
+function accClass(acc){if(acc===null)return"neutral";if(acc>=75)return"good";if(acc>=55)return"mid";return"bad";}
+const STAT_MODULES=[
+  {key:"preflop",label:"Préflop (RFI)",byPos:true},
+  {key:"vsopen",label:"vs Open",byPos:true,posPrefix:"vs "},
+  {key:"postflop",label:"Postflop (tirages)",byPos:false},
+  {key:"potodds",label:"Cotes du pot",byPos:false},
+];
+function renderStats(){
+  const el=document.getElementById("stats-content");
+  let html="";
+  for(const m of STAT_MODULES){
+    const d=stats[m.key];
+    const acc=d.total?100*d.correct/d.total:null;
+    html+=`<div class="statmod"><div class="statmod-head"><span>${m.label}</span><span class="statacc ${accClass(acc)}">${acc===null?"—":acc.toFixed(0)+"%"}</span></div>`;
+    html+=`<div class="statsub">${d.total} main${d.total>1?"s":""} jouée${d.total>1?"s":""}</div>`;
+    if(m.byPos){
+      const entries=Object.entries(d.byPos).filter(([,v])=>v.total>0)
+        .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
+      if(entries.length){
+        html+=`<div class="statpos">`;
+        for(const[pos,v]of entries){
+          const pacc=100*v.correct/v.total;
+          const leak=v.total>=5&&pacc<60;
+          html+=`<div class="statposrow ${leak?"leak":""}"><span>${leak?"🔴 ":""}${(m.posPrefix||"")+pos}</span><span>${pacc.toFixed(0)}% (${v.correct}/${v.total})</span></div>`;
+        }
+        html+=`</div>`;
+      }
+    }
+    html+="</div>";
+  }
+  el.innerHTML=html;
+}
+function resetStats(){
+  if(!confirm("Réinitialiser toutes les stats ?"))return;
+  stats=emptyStats();saveStats();renderStats();
+}
 
 /* ============ MODULE PREFLOP ============ */
 let pfScore=0,pfTotal=0,pfState=null;
@@ -327,6 +407,7 @@ function pfNew(){
 function pfAnswer(ans){
   if(!pfState)return;const{pos,cano,correct}=pfState;pfTotal++;
   const ok=ans===correct;if(ok)pfScore++;
+  recordStat("preflop",ok,pos);
   const action=correct==="r"?"OUVRIR (relance)":"FOLD";
   let why;
   if(correct==="r")why=`${cano} fait partie de la range d'ouverture en ${pos}. Main assez forte pour prendre l'initiative.`;
@@ -360,6 +441,7 @@ function poNew(){
 function poAnswer(ans){
   if(!poState)return;const{pot,bet,eq,be,correct}=poState;poTotal++;
   const ok=ans===correct;if(ok)poScore++;
+  recordStat("potodds",ok);
   const fb=document.getElementById("po-fb");
   fb.className="feedback "+(ok?"ok":"bad");
   fb.innerHTML=`<b>${ok?"✅ Correct":"❌ Erreur"}</b> — bonne décision : <b>${correct==="c"?"CALL":"FOLD"}</b><br>`+
@@ -409,6 +491,7 @@ function vsoAnswer(ans){
   if(!vsoState) return;
   const {sc, cano, correct} = vsoState; vsoTotal++;
   const ok = ans === correct; if(ok) vsoScore++;
+  recordStat("vsopen", ok, sc.raiser);
   const names = {"3": "3-BET", "c": "CALL", "f": "FOLD"};
   let why;
   if(correct === "3") why = `${cano} se 3-bet face à l'ouverture ${sc.raiser} : assez fort pour relancer pour la valeur (ou en bluff dans une défense large).`;
@@ -480,6 +563,7 @@ function pflAnswer(ans){
   if(!pflState) return;
   const {d, pot, bet, be, correct} = pflState; pflTotal++;
   const ok = ans === correct; if(ok) pflScore++;
+  recordStat("postflop", ok);
   const rule4 = Math.min(d.outs * 4, 100);
   const fb = document.getElementById("pfl-fb");
   fb.className = "feedback " + (ok ? "ok" : "bad");
@@ -518,7 +602,7 @@ function runEquity(){
 }
 
 /* init */
-pfNew();poNew();pflNew();vsoNew();
+pfNew();poNew();pflNew();vsoNew();renderStats();
 </script>
 </body>
 </html>
